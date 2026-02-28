@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frente de Caixa - PDV</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .btn-excluir { background: none; border: none; color: #ef4444; cursor: pointer; transition: 0.3s; }
+        .btn-excluir:hover { color: #b91c1c; transform: scale(1.2); }
+
+        #sugestoes {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            width: 100%;
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .sugestao-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+        .sugestao-item:hover { background-color: #f3f4f6; }
+        .input-wrapper { position: relative; }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="nav-logo">🚀 B2B NEXUS</div>
+    <div class="nav-links">
+        <a th:href="@{/home}">🏠 Home</a>
+        <a th:href="@{/venda}" class="active">💰 Abrir Nova Venda</a>
+    </div>
+</div>
+
+<div class="container">
+    <header>
+        <h2>Frente de Caixa</h2>
+    </header>
+
+    <div class="form-venda">
+        <div class="input-field">
+            <label for="idInput">ID do Produto (F2)</label>
+            <input type="number" id="idInput" placeholder="Cód.">
+        </div>
+
+        <div class="input-field input-wrapper">
+            <label for="nomeInput">Busca por Nome (F8)</label>
+            <input type="text" id="nomeInput" placeholder="Digite o nome..." autocomplete="off">
+            <div id="sugestoes"></div>
+        </div>
+
+        <div class="input-field">
+            <label for="qtdInput">Qtd</label>
+            <input type="number" id="qtdInput" value="1" min="1">
+        </div>
+
+        <div class="input-field">
+            <label for="descontoInput">Desconto (R$)</label>
+            <input type="number" id="descontoInput" value="0" min="0" step="0.01" oninput="atualizarTabela()">
+        </div>
+
+        <div class="input-field">
+            <label for="formaPagamento">Pagamento</label>
+            <select id="formaPagamento">
+                <option value="DINHEIRO">💵 Dinheiro</option>
+                <option value="CARTAO_DEBITO">💳 Débito</option>
+                <option value="CARTAO_CREDITO">💳 Crédito</option>
+                <option value="PIX">📱 PIX</option>
+            </select>
+        </div>
+
+        <button type="button" onclick="buscarEAdicionar()" class="btn btn-novo">ADICIONAR</button>
+    </div>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+            <tr>
+                <th>Produto</th>
+                <th>Preço Unit.</th>
+                <th>Qtd</th>
+                <th>Subtotal</th>
+                <th>Ação</th>
+            </tr>
+            </thead>
+            <tbody id="tabelaItens"></tbody>
+        </table>
+    </div>
+
+    <div id="total-container">
+        <div class="resumo-detalhe">
+            <p>Subtotal: <span id="subtotalGeral">R$ 0,00</span></p>
+            <p>Desconto: <span id="valorDesconto" style="color: #ef4444;">- R$ 0,00</span></p>
+        </div>
+        <hr>
+        <div class="total-final">
+            <p>Total a Pagar</p>
+            <h3 id="totalGeral">R$ 0,00</h3>
+        </div>
+        <button type="button" onclick="enviarVenda()" class="btn btn-finalizar">FINALIZAR VENDA (F9)</button>
+    </div>
+</div>
+
+<script>
+    let carrinho = [];
+
+    const nomeInput = document.getElementById('nomeInput');
+    const sugestoesDiv = document.getElementById('sugestoes');
+    const idInput = document.getElementById('idInput');
+
+    // --- LÓGICA DE ATALHOS DE TECLADO ---
+    document.addEventListener('keydown', function(e) {
+        // F2 - Focar no ID do Produto
+        if (e.key === 'F2') {
+            e.preventDefault();
+            idInput.focus();
+        }
+
+        // F8 - Focar na Busca por Nome
+        if (e.key === 'F8') {
+            e.preventDefault();
+            nomeInput.focus();
+        }
+
+        // F9 - Finalizar Venda
+        if (e.key === 'F9') {
+            e.preventDefault();
+            enviarVenda();
+        }
+
+        // ESC - Limpar campos e sugestões
+        if (e.key === 'Escape') {
+            idInput.value = '';
+            nomeInput.value = '';
+            sugestoesDiv.innerHTML = '';
+        }
+    });
+
+    // BUSCA POR NOME
+    nomeInput.addEventListener('input', async () => {
+        const busca = nomeInput.value;
+        if (busca.length < 2) {
+            sugestoesDiv.innerHTML = '';
+            return;
+        }
+        try {
+            const res = await fetch(`/produtos/buscar?nome=${busca}`);
+            const produtos = await res.json();
+            sugestoesDiv.innerHTML = '';
+            produtos.forEach(p => {
+                const div = document.createElement('div');
+                div.classList.add('sugestao-item');
+                div.innerText = `${p.nome} - R$ ${p.preco.toFixed(2)}`;
+                div.onclick = () => {
+                    idInput.value = p.id;
+                    nomeInput.value = p.nome;
+                    sugestoesDiv.innerHTML = '';
+                    buscarEAdicionar();
+                };
+                sugestoesDiv.appendChild(div);
+            });
+        } catch (e) { console.error(e); }
+    });
+
+    async function buscarEAdicionar() {
+        const id = idInput.value;
+        const qtd = parseInt(document.getElementById('qtdInput').value) || 1;
+        if (!id) return;
+
+        try {
+            const res = await fetch('/produtos/' + id);
+            if (res.ok) {
+                const prod = await res.json();
+                carrinho.push({
+                    produtoId: prod.id,
+                    nome: prod.nome,
+                    preco: prod.preco,
+                    quantidade: qtd,
+                    subtotal: prod.preco * qtd
+                });
+                atualizarTabela();
+                idInput.value = '';
+                nomeInput.value = '';
+                idInput.focus();
+            } else { alert("Produto não encontrado!"); }
+        } catch (error) { console.error(error); }
+    }
+
+    function removerItem(index) {
+        carrinho.splice(index, 1);
+        atualizarTabela();
+    }
+
+    function atualizarTabela() {
+        const corpo = document.getElementById('tabelaItens');
+        corpo.innerHTML = '';
+        let subtotal = 0;
+
+        carrinho.forEach((item, index) => {
+            subtotal += item.subtotal;
+            corpo.innerHTML += `
+            <tr>
+                <td>${item.nome}</td>
+                <td>R$ ${item.preco.toFixed(2)}</td>
+                <td>${item.quantidade}</td>
+                <td>R$ ${item.subtotal.toFixed(2)}</td>
+                <td>
+                    <button type="button" class="btn-excluir" onclick="removerItem(${index})">
+                        <i class="fas fa-trash-can"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+
+        const desconto = parseFloat(document.getElementById('descontoInput').value) || 0;
+        const totalFinal = Math.max(0, subtotal - desconto);
+
+        document.getElementById('subtotalGeral').innerText = `R$ ${subtotal.toFixed(2)}`;
+        document.getElementById('valorDesconto').innerText = `- R$ ${desconto.toFixed(2)}`;
+        document.getElementById('totalGeral').innerText = `R$ ${totalFinal.toFixed(2)}`;
+    }
+
+    function imprimirCupom(dados) {
+        const dataHora = new Date().toLocaleString();
+        let itensHtml = "";
+        dados.itens.forEach(item => {
+            itensHtml += `
+            <div style="display: flex; justify-content: space-between;">
+                <span>${item.quantidade}x ${item.nome}</span>
+                <span>R$ ${item.subtotal.toFixed(2)}</span>
+            </div>`;
+        });
+
+        const conteudoCupom = `
+        <div style="font-family: monospace; width: 300px; padding: 10px;">
+            <div style="text-align: center; font-weight: bold; font-size: 1.2rem;">🚀 B2B NEXUS</div>
+            <hr>
+            <div style="text-align: center;">CUPOM NÃO FISCAL</div>
+            <div style="font-size: 0.8rem;">Data: ${dataHora}</div>
+            <hr>
+            ${itensHtml}
+            <hr>
+            <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                <span>TOTAL:</span> <span>R$ ${dados.total.toFixed(2)}</span>
+            </div>
+            <hr>
+            <div style="text-align: center;">PAGAMENTO: ${dados.formaPagamento}</div>
+        </div>`;
+
+        const janela = window.open('', '', 'width=350,height=600');
+        janela.document.write(conteudoCupom);
+        janela.document.close();
+        setTimeout(() => { janela.print(); janela.close(); }, 500);
+    }
+
+    async function enviarVenda() {
+        if(carrinho.length === 0) return alert("Carrinho vazio!");
+
+        const subtotal = carrinho.reduce((a, b) => a + b.subtotal, 0);
+        const desconto = parseFloat(document.getElementById('descontoInput').value) || 0;
+        const formaPagamento = document.getElementById('formaPagamento').value;
+
+        const dados = {
+            total: subtotal - desconto,
+            desconto: desconto,
+            formaPagamento: formaPagamento,
+            itens: carrinho
+        };
+
+        try {
+            const res = await fetch('/venda/api/finalizar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(dados)
+            });
+
+            if(res.ok) {
+                imprimirCupom(dados);
+                alert("✅ Venda Finalizada!");
+                carrinho = [];
+                document.getElementById('descontoInput').value = 0;
+                atualizarTabela();
+            } else { alert("Erro ao salvar venda."); }
+        } catch (error) { alert("Erro de conexão."); }
+    }
+
+    idInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') buscarEAdicionar();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (e.target !== nomeInput) sugestoesDiv.innerHTML = '';
+    });
+</script>
+</body>
+</html>
