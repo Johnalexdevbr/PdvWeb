@@ -1,7 +1,8 @@
 # Estágio de construção (Build)
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 COPY . .
-RUN mvn clean package -DskipTests
+# Adicionamos a flag para ignorar o erro de codificação (MalformedInputException)
+RUN mvn clean package -DskipTests -Dmaven.resources.filtering=false
 
 # Estágio de execução
 FROM eclipse-temurin:17-jdk-jammy
