@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Home - B2BNexus</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; margin: 0; text-align: center; }
+        nav { background-color: #1a252f; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .dashboard { display: flex; justify-content: center; gap: 30px; margin-top: 50px; flex-wrap: wrap; padding: 20px; }
+        .card { background: white; padding: 40px 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; width: 280px; min-height: 220px; transition: 0.4s; text-decoration: none; color: #2c3e50; display: flex; flex-direction: column; justify-content: center; }
+        .card:hover { transform: translateY(-10px); box-shadow: 0 15px 35px rgba(0,0,0,0.1); border-color: #3498db; }
+        .card span { display: block; margin-bottom: 20px; font-size: 60px; }
+        .caixa-wrapper { display: flex; justify-content: center; margin-top: 40px; }
+        .caixa-card { width: 600px; background: white; border-radius: 20px; padding: 35px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
+        .caixa-fechado { border-top: 6px solid #e74c3c; }
+        .caixa-aberto { border-top: 6px solid #27ae60; }
+        .caixa-card h3 { margin: 10px 0; }
+        .caixa-card input { padding: 10px; width: 200px; border-radius: 8px; border: 1px solid #ccc; margin-top: 10px; }
+        .caixa-card button { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; margin-top: 15px; }
+        .btn-abrir { background: #27ae60; color: white; }
+        .btn-sangria { background: #f39c12; color: white; margin-right: 10px; }
+        .btn-fechar { background: #e74c3c; color: white; }
+        .card-table { width: 95%; max-width: 1100px; margin: 50px auto; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); background: white; }
+        .card-table table { width: 100%; border-collapse: collapse; }
+        .card-table th { background-color: #1a252f; color: white; padding: 12px; }
+        .card-table td { padding: 10px; border-bottom: 1px solid #eee; }
+        .card-table tr:hover { background: #f5f8fa; }
+        .filters { display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-wrap: wrap; }
+        pre { font-family: 'Courier New', monospace; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <span style="font-weight: bold; font-size: 20px;">🚀 B2BNexus</span>
+    <a th:href="@{/login?logout}" style="color: white; text-decoration: none; font-weight: bold;">Sair</a>
+</nav>
+
+<div class="caixa-wrapper">
+    <!-- FECHADO -->
+    <div th:if="${!caixaAberto}" class="caixa-card caixa-fechado">
+        <span style="font-size:50px;">🔒</span>
+        <h3 style="color:#e74c3c;">Caixa Fechado</h3>
+        <p>Informe o valor de troco inicial para abrir o dia.</p>
+        <input type="number" id="valorInicial" value="0.00" step="0.01">
+        <br>
+        <button class="btn-abrir" onclick="abrirCaixa()">Abrir Caixa</button>
+    </div>
+
+    <!-- ABERTO -->
+    <div th:if="${caixaAberto}" class="caixa-card caixa-aberto">
+        <span style="font-size:50px;">🟢</span>
+        <h3 style="color:#27ae60;">Caixa Operante</h3>
+        <p>Sistema liberado para vendas.</p>
+        <input type="number" id="valorSangria" placeholder="Valor da Sangria" step="0.01">
+        <br>
+        <button class="btn-sangria" onclick="registrarSangria()">Sangria</button>
+        <button class="btn-fechar" onclick="fecharCaixa()">Encerrar Caixa</button>
+    </div>
+</div>
+
+<div class="dashboard">
+    <a th:href="@{/venda}" class="card">
+        <span>💰</span>
+        <h3>Frente de Caixa</h3>
+        <p>Realizar novas vendas</p>
+    </a>
+    <a th:href="@{/produtos}" class="card">
+        <span>📦</span>
+        <h3>Estoque</h3>
+        <p>Gerenciar produtos</p>
+    </a>
+    <a th:href="@{/relatorios}" class="card">
+        <span>📊</span>
+        <h3>Relatórios</h3>
+        <p>Dashboard e performance</p>
+    </a>
+</div>
+
+<div class="card-table">
+    <div class="filters">
+        <label>Filtrar por Data:
+            <input type="date" id="filtroData">
+        </label>
+        <button onclick="filtrarCaixas()">Filtrar</button>
+        <button onclick="exportarPDF()">Exportar PDF</button>
+    </div>
+    <table>
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Abertura</th>
+            <th>Fechamento</th>
+            <th>(+) Abertura</th>
+            <th>(+) Vendas</th>
+            <th>(-) Sangrias</th>
+            <th>(=) Saldo Final</th>
+        </tr>
+        </thead>
+        <tbody id="tabelaCaixas"></tbody>
+    </table>
+</div>
+
+<script>
+    async function abrirCaixa() {
+        const valor = parseFloat(document.getElementById('valorInicial').value);
+        if (isNaN(valor)) return alert("Informe um valor válido.");
+
+        const res = await fetch('/caixa/api/abrir', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ valorInicial: valor })
+        });
+        const data = await res.json();
+        if (data.status === "sucesso") location.reload();
+        else alert(data.erro || data);
+    }
+
+    async function registrarSangria() {
+        const valor = parseFloat(document.getElementById('valorSangria').value);
+        if (!valor || valor <= 0) return alert("Informe um valor válido.");
+
+        const res = await fetch('/caixa/api/sangria', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ valor })
+        });
+        const data = await res.json();
+        if (data.status === "sucesso") {
+            alert("💰 Sangria registrada!");
+            location.reload();
+        } else alert(data.erro || data);
+    }
+
+    async function fecharCaixa() {
+        const res = await fetch('/caixa/api/fechar', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === "sucesso") {
+            // Monta relatório detalhado completo
+            let relatorio = `
+===============================
+       FECHAMENTO DE CAIXA
+===============================
+Abertura Inicial: R$ ${data.abertura.toFixed(2)}
+Sangrias:        R$ ${data.sangrias.toFixed(2)}
+-------------------------------
+VENDAS REALIZADAS:
+`;
+
+            if (data.vendasDetalhadas && data.vendasDetalhadas.length > 0) {
+                data.vendasDetalhadas.forEach(venda => {
+                    relatorio += `Venda #${venda.id} - Pagamento: ${venda.pagamento}\n`;
+                    venda.produtos.forEach(p => {
+                        relatorio += `   ${p.quantidade}x ${p.nome} - R$ ${p.preco.toFixed(2)}\n`;
+                    });
+                    relatorio += `   Total: R$ ${venda.valor.toFixed(2)}\n`;
+                    relatorio += '-------------------------------\n';
+                });
+            } else {
+                relatorio += "Nenhuma venda registrada.\n-------------------------------\n";
+            }
+
+            relatorio += `
+TOTAL VENDAS:     R$ ${data.vendas.toFixed(2)}
+TOTAL GERAL:      R$ ${data.totalGeral.toFixed(2)}
+===============================
+Data/Hora: ${new Date().toLocaleString()}
+`;
+
+            // Exibe alerta
+            alert(relatorio);
+
+            // Imprime automaticamente
+            const printWindow = window.open('', '', 'height=600,width=500');
+            printWindow.document.write('<pre>' + relatorio + '</pre>');
+            printWindow.document.close();
+            printWindow.print();
+
+            location.reload();
+        } else alert(data.erro || data);
+    }
+
+    function filtrarCaixas() {
+        const data = document.getElementById('filtroData').value;
+        window.location.href = `/relatorios?data=${data}`;
+    }
+
+    function exportarPDF() {
+        alert("Função PDF ainda não implementada");
+    }
+</script>
+
+</body>
+</html>
