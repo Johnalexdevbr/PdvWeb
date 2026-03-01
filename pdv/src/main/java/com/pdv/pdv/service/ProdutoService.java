@@ -33,8 +33,8 @@ public class ProdutoService {
         Produto produto = buscarPorId(id);
         if (produto != null) {
             // Se a quantidade atual for nula, tratamos como 0 para não dar erro
-            double estoqueAtual = (produto.getQuantidade() != null) ? produto.getQuantidade() : 0.0;
-            produto.setQuantidade(estoqueAtual + quantidadeEntrada);
+            double estoqueAtual = (produto.getEstoque() != null) ? produto.getEstoque() : 0.0;
+            produto.setEstoque((int) (estoqueAtual + quantidadeEntrada));
             salvar(produto);
         }
     }

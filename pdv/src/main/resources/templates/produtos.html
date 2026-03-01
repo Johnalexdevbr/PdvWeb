@@ -82,8 +82,8 @@
 
                     <td>
                             <span class="badge badge-estoque rounded-pill"
-                                  th:classappend="${produto.quantidade < 5} ? 'bg-danger text-white' : 'bg-success text-white'"
-                                  th:text="${produto.quantidade != null ? produto.quantidade : 0} + ' un'">
+                                  th:classappend="${produto.estoque < 5} ? 'bg-danger text-white' : 'bg-success text-white'"
+                                  th:text="${produto.estoque != null ? produto.estoque : 0} + ' un'">
                             </span>
                     </td>
 

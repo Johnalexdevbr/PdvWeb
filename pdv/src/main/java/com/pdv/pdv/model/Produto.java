@@ -15,14 +15,12 @@ public class Produto {
     private String nome;
     private Double preco;
 
-    // NOVO CAMPO: Essencial para o controle de estoque
-    private Double quantidade;
+    // PADRONIZADO: Nome 'estoque' e tipo 'Integer' para evitar erro de Double
+    private Integer estoque;
 
-    // Construtor vazio (obrigatório para o Spring)
     public Produto() {
     }
 
-    // Getters e Setters atualizados
     public Long getId() {
         return id;
     }
@@ -47,12 +45,12 @@ public class Produto {
         this.preco = preco;
     }
 
-    // NOVOS MÉTODOS para a quantidade
-    public Double getQuantidade() {
-        return quantidade;
+    // Getters e Setters corrigidos para 'estoque'
+    public Integer getEstoque() {
+        return estoque;
     }
 
-    public void setQuantidade(Double quantidade) {
-        this.quantidade = quantidade;
+    public void setEstoque(Integer estoque) {
+        this.estoque = estoque;
     }
 }

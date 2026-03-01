@@ -22,7 +22,7 @@ public class ProdutoController {
     // --- NOVO MÉTODO: Pesquisa produtos por parte do nome ---
     @GetMapping("/buscar")
     @ResponseBody
-    public List<Produto> buscarPorNome(@RequestParam("nome") String nome) {
+    public List<com.pdv.pdv.model.Produto> buscarPorNome(@RequestParam("nome") String nome) {
         // Este método usa a linha que adicionamos no ProdutoRepository
         return produtoRepository.findByNomeContainingIgnoreCase(nome);
     }
@@ -64,13 +64,21 @@ public class ProdutoController {
         return "cadastro";
     }
 
-    // 6. Botão de entrada rápida de estoque
+    // 6. Botão de entrada rápida de estoque (CORRIGIDO)
     @PostMapping("/entrada-estoque")
-    public String entradaEstoque(@RequestParam("id") Long id, @RequestParam("quantidade") Double quantidade) {
+    public String entradaEstoque(@RequestParam("id") Long id, @RequestParam("quantidade") Integer quantidade) {
         Produto produto = produtoRepository.findById(id).orElseThrow();
-        Double estoqueAtual = (produto.getQuantidade() != null) ? produto.getQuantidade() : 0.0;
-        produto.setQuantidade(estoqueAtual + quantidade);
+
+        // 1. Pegamos o estoque atual (garantindo que não seja nulo)
+        int estoqueAtual = (produto.getEstoque() != null) ? produto.getEstoque() : 0;
+
+        // 2. SOMAMOS a quantidade que está entrando (Entrada de estoque)
+        // Aqui mudei de 'estoqVendida' para 'quantidade' que é o nome que vem no @RequestParam
+        produto.setEstoque(estoqueAtual + quantidade);
+
+        // 3. Salvamos a atualização
         produtoRepository.save(produto);
+
         return "redirect:/produtos";
     }
 

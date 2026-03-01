@@ -4,18 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDV | Relatórios Avançados</title>
-
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <style>
         .card { border-radius: 15px; border: none; transition: transform 0.2s; }
         .card:hover { transform: translateY(-5px); }
         .bg-gradient-primary { background: linear-gradient(45deg, #4f46e5, #3b82f6); }
         .bg-gradient-success { background: linear-gradient(45deg, #10b981, #059669); }
         .bg-gradient-danger { background: linear-gradient(45deg, #ef4444, #dc2626); }
-        .shadow-lg-custom { box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
         .chart-container { position: relative; height: 320px; width: 100%; }
         .badge-payment { font-size: 0.75rem; padding: 0.5em 0.8em; border-radius: 8px; }
     </style>
@@ -24,35 +21,13 @@
 
 <div class="container py-5">
     <div class="d-flex justify-content-between align-items-center mb-5">
-        <div>
-            <h1 class="fw-bold text-dark m-0">📊 Dashboard de Performance</h1>
-            <p class="text-muted" th:text="${dataSelecionada != null} ? 'Exibindo resultados de: ' + ${dataSelecionada} : 'Visão geral de todas as vendas'"></p>
-        </div>
-        <a href="/home" class="btn btn-outline-dark rounded-pill px-4">
-            <i class="fas fa-home me-2"></i> Início
-        </a>
-    </div>
-
-    <div class="card shadow-sm p-3 mb-5">
-        <form action="/relatorios" method="get" class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label class="form-label small fw-bold text-uppercase">Filtrar por dia</label>
-                <input type="date" name="data" class="form-control" th:value="${dataSelecionada}">
-            </div>
-            <div class="col-md-3">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="fas fa-search me-2"></i>Aplicar Filtro
-                </button>
-            </div>
-            <div class="col-md-2" th:if="${dataSelecionada != null}">
-                <a href="/relatorios" class="btn btn-link text-decoration-none text-muted w-100 text-center">Limpar</a>
-            </div>
-        </form>
+        <h1 class="fw-bold text-dark m-0">📊 Dashboard de Performance</h1>
+        <a href="/home" class="btn btn-outline-dark rounded-pill px-4"><i class="fas fa-home me-2"></i> Início</a>
     </div>
 
     <div class="row g-4 mb-5">
         <div class="col-md-4">
-            <div class="card bg-gradient-primary text-white shadow-lg-custom">
+            <div class="card bg-gradient-primary text-white shadow-sm">
                 <div class="card-body p-4 text-center">
                     <h6 class="text-uppercase opacity-75 small">Total de Pedidos</h6>
                     <h2 class="display-5 fw-bold mb-0" th:text="${vendasHoje}">0</h2>
@@ -60,18 +35,22 @@
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card bg-gradient-danger text-white shadow-lg-custom">
+            <div class="card bg-gradient-danger text-white shadow-sm">
                 <div class="card-body p-4 text-center">
                     <h6 class="text-uppercase opacity-75 small">Total em Descontos</h6>
-                    <h2 class="display-5 fw-bold mb-0">R$ <span th:text="${#numbers.formatDecimal(totalDescontos, 1, 2, 'POINT')}">0.00</span></h2>
+                    <h2 class="display-5 fw-bold mb-0">R$
+                        <span th:text="${totalDescontos != null} ? ${#numbers.formatDecimal(totalDescontos, 1, 2, 'COMMA')} : '0,00'">0,00</span>
+                    </h2>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card bg-gradient-success text-white shadow-lg-custom">
+            <div class="card bg-gradient-success text-white shadow-sm">
                 <div class="card-body p-4 text-center">
                     <h6 class="text-uppercase opacity-75 small">Faturamento Líquido</h6>
-                    <h2 class="display-5 fw-bold mb-0">R$ <span th:text="${#numbers.formatDecimal(totalFaturado, 1, 2, 'POINT')}">0.00</span></h2>
+                    <h2 class="display-5 fw-bold mb-0">R$
+                        <span th:text="${totalFaturado != null} ? ${#numbers.formatDecimal(totalFaturado, 1, 2, 'COMMA')} : '0,00'">0,00</span>
+                    </h2>
                 </div>
             </div>
         </div>
@@ -79,44 +58,34 @@
 
     <div class="card shadow mb-5 p-4">
         <h5 class="fw-bold mb-4 text-secondary"><i class="fas fa-chart-line me-2"></i>Curva de Faturamento</h5>
-        <div class="chart-container">
-            <canvas id="vendasChart"></canvas>
-        </div>
+        <div class="chart-container"><canvas id="vendasChart"></canvas></div>
     </div>
 
     <div class="card shadow border-0">
-        <div class="card-header bg-white py-3">
-            <h5 class="fw-bold m-0">Histórico Detalhado</h5>
-        </div>
+        <div class="card-header bg-white py-3"><h5 class="fw-bold m-0">Histórico Detalhado por Item</h5></div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                 <tr>
                     <th class="ps-4">Protocolo</th>
                     <th>Data e Hora</th>
+                    <th>Produto</th>
+                    <th class="text-center">Qtd</th>
                     <th>Pagamento</th>
-                    <th class="text-center">Desconto</th>
-                    <th class="text-end pe-4">Valor Total</th>
+                    <th class="text-end pe-4">Subtotal Item</th>
                 </tr>
                 </thead>
                 <tbody>
-                <tr th:each="venda : ${listaVendas}">
-                    <td class="ps-4 fw-bold text-primary" th:text="'#' + ${venda.id}">#1</td>
-                    <td th:text="${#temporals.format(venda.dataHora, 'dd/MM/yyyy HH:mm')}">01/01/2026</td>
-                    <td>
-                        <span class="badge bg-light text-dark border badge-payment">
-                            <i class="fas fa-wallet me-1 text-primary"></i>
-                            <span th:text="${venda.formaPagamento}">DINHEIRO</span>
-                        </span>
-                    </td>
-                    <td class="text-center text-danger fw-bold"
-                        th:text="${venda.desconto != null and venda.desconto > 0} ? '- R$ ' + ${#numbers.formatDecimal(venda.desconto, 1, 2, 'POINT')} : '-'">
-                    </td>
-                    <td class="text-end pe-4 fw-bold text-dark"
-                        th:text="'R$ ' + ${#numbers.formatDecimal(venda.total, 1, 2, 'POINT')}">R$ 0.00</td>
+                <tr th:each="item : ${listaItens}">
+                    <td class="ps-4 fw-bold text-primary" th:text="'#' + ${item.venda.id}">#1</td>
+                    <td th:text="${#temporals.format(item.venda.dataHora, 'dd/MM/yyyy HH:mm')}"></td>
+                    <td class="fw-bold" th:text="${item.produto.nome}">Produto</td>
+                    <td class="text-center" th:text="${item.quantidade}">1</td>
+                    <td><span class="badge bg-light text-dark border badge-payment" th:text="${item.venda.formaPagamento}"></span></td>
+                    <td class="text-end pe-4 fw-bold" th:text="'R$ ' + ${#numbers.formatDecimal(item.precoUnitario * item.quantidade, 1, 2, 'COMMA')}"></td>
                 </tr>
-                <tr th:if="${#lists.isEmpty(listaVendas)}">
-                    <td colspan="5" class="text-center py-5 text-muted">Nenhuma venda encontrada para o período selecionado.</td>
+                <tr th:if="${#lists.isEmpty(listaItens)}">
+                    <td colspan="6" class="text-center py-4 text-muted">Nenhum item vendido encontrado.</td>
                 </tr>
                 </tbody>
             </table>
@@ -125,47 +94,39 @@
 </div>
 
 <script th:inline="javascript">
-    const listaVendas = [[${listaVendas}]];
+    /* Adicionada verificação para evitar erro se a lista estiver vazia */
+    const listaVendas = [[${listaVendas}]] || [];
 
-    const labels = listaVendas.map(v => {
-        const d = new Date(v.dataHora);
-        return d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-    });
-    const valores = listaVendas.map(v => v.total);
+    if (listaVendas.length > 0) {
+        const labels = listaVendas.map(v => {
+            const d = new Date(v.dataHora);
+            return d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+        });
+        const valores = listaVendas.map(v => v.total || 0);
 
-    const ctx = document.getElementById('vendasChart').getContext('2d');
-    const blueGradient = ctx.createLinearGradient(0, 0, 0, 300);
-    blueGradient.addColorStop(0, 'rgba(79, 70, 229, 0.4)');
-    blueGradient.addColorStop(1, 'rgba(79, 70, 229, 0.0)');
-
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Venda (R$)',
-                data: valores,
-                borderColor: '#4f46e5',
-                backgroundColor: blueGradient,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 4,
-                pointBackgroundColor: '#fff',
-                pointBorderColor: '#4f46e5',
-                borderWidth: 3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { grid: { borderDash: [5, 5] }, beginAtZero: true },
-                x: { grid: { display: false } }
+        const ctx = document.getElementById('vendasChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Venda (R$)',
+                    data: valores,
+                    borderColor: '#4f46e5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true }
+                }
             }
-        }
-    });
+        });
+    }
 </script>
-
 </body>
 </html>

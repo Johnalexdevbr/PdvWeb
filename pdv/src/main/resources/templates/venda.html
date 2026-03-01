@@ -181,7 +181,7 @@
             if (res.ok) {
                 const prod = await res.json();
                 carrinho.push({
-                    produtoId: prod.id,
+                    id: prod.id,
                     nome: prod.nome,
                     preco: prod.preco,
                     quantidade: qtd,

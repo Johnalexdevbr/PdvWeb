@@ -1,18 +1,22 @@
 package com.pdv.pdv.controller;
 
 import com.pdv.pdv.model.Caixa;
+import com.pdv.pdv.model.ItemVenda;
 import com.pdv.pdv.model.Venda;
 import com.pdv.pdv.repository.CaixaRepository;
+import com.pdv.pdv.repository.ItemVendaRepository;
 import com.pdv.pdv.repository.VendaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/caixa/api")
@@ -23,6 +27,9 @@ public class CaixaController {
 
     @Autowired
     private VendaRepository vendaRepository;
+
+    @Autowired
+    private ItemVendaRepository itemVendaRepository;
 
     // ================= ABRIR CAIXA =================
     @PostMapping("/abrir")
@@ -81,30 +88,49 @@ public class CaixaController {
 
         try {
             Caixa caixa = caixaOpt.get();
+            // Busca as vendas desde a abertura do caixa atual
             List<Venda> vendasDoTurno = vendaRepository.findByDataHoraAfter(caixa.getDataAbertura());
 
-            Map<String, Double> porForma = new HashMap<>();
             double totalVendas = 0.0;
             double totalDescontos = 0.0;
+            List<Map<String, Object>> vendasDetalhadas = new ArrayList<>();
 
             for (Venda v : vendasDoTurno) {
                 double valorVenda = v.getTotal() != null ? v.getTotal() : 0.0;
                 totalVendas += valorVenda;
                 totalDescontos += (v.getDesconto() != null ? v.getDesconto() : 0.0);
-                String forma = v.getFormaPagamento() != null ? v.getFormaPagamento() : "NÃO INFORMADO";
-                porForma.put(forma, porForma.getOrDefault(forma, 0.0) + valorVenda);
+
+                // Objeto de venda para o relatório do JS
+                Map<String, Object> vMap = new HashMap<>();
+                vMap.put("id", v.getId());
+                vMap.put("pagamento", v.getFormaPagamento() != null ? v.getFormaPagamento() : "N/I");
+                vMap.put("valor", valorVenda);
+
+                // Busca os itens desta venda usando o ID
+                List<Map<String, Object>> itensMap = itemVendaRepository.findByVendaId(v.getId()).stream().map(item -> {
+                    Map<String, Object> pMap = new HashMap<>();
+                    pMap.put("nome", item.getProduto().getNome());
+                    pMap.put("quantidade", item.getQuantidade());
+                    pMap.put("preco", item.getPrecoUnitario());
+                    return pMap;
+                }).collect(Collectors.toList());
+
+                vMap.put("produtos", itensMap);
+                vendasDetalhadas.add(vMap);
             }
 
             double valorAbertura = caixa.getValorAbertura() != null ? caixa.getValorAbertura() : 0.0;
             double totalSangria = caixa.getTotalSangria() != null ? caixa.getTotalSangria() : 0.0;
             double saldoFinal = valorAbertura + totalVendas - totalSangria;
 
+            // Atualiza o status do caixa
             caixa.setStatus("FECHADO");
             caixa.setDataFechamento(LocalDateTime.now());
             caixa.setTotalVendas(totalVendas);
             caixa.setValorFechamento(saldoFinal);
             caixaRepository.save(caixa);
 
+            // Resposta unificada para o JavaScript
             return ResponseEntity.ok(Map.of(
                     "status", "sucesso",
                     "abertura", valorAbertura,
@@ -112,12 +138,12 @@ public class CaixaController {
                     "descontos", totalDescontos,
                     "sangrias", totalSangria,
                     "totalGeral", saldoFinal,
-                    "detalhePagamento", porForma
+                    "vendasDetalhadas", vendasDetalhadas
             ));
 
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(500).body("Erro interno ao processar valores: " + e.getMessage());
+            return ResponseEntity.status(500).body("Erro interno ao fechar caixa: " + e.getMessage());
         }
     }
 }
