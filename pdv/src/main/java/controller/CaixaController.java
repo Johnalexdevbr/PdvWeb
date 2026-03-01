@@ -21,6 +21,7 @@ public class CaixaController {
     @Autowired
     private CaixaRepository caixaRepository;
 
+    //TODO tentar criar o próprio construtor depois
     @Autowired
     private VendaRepository vendaRepository;
 
